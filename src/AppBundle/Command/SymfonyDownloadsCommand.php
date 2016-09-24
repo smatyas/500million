@@ -32,21 +32,21 @@ class SymfonyDownloadsCommand extends ContainerAwareCommand
      *
      * @var int
      */
-    private $updatedAt = 1474525501;
+    private $updatedAt = 1474698301;
 
     /**
      * The total download count so far.
      *
      * @var int
      */
-    private $downloads = 495733451;
+    private $downloads = 498269105;
 
     /**
      * The current download rate.
      *
      * @var int
      */
-    private $perSecond = 12.219936728395;
+    private $perSecond = 12.15416242284;
 
     /**
      * Timestamp of the last refresh.
