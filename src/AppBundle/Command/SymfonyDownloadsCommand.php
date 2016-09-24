@@ -28,7 +28,7 @@ class SymfonyDownloadsCommand extends ContainerAwareCommand
     const GOAL = 500000000;
 
     /**
-     * The timestamp of the last refresh.
+     * The timestamp of the last stats.
      *
      * @var int
      */
@@ -47,6 +47,13 @@ class SymfonyDownloadsCommand extends ContainerAwareCommand
      * @var int
      */
     private $perSecond = 12.219936728395;
+
+    /**
+     * Timestamp of the last refresh.
+     *
+     * @var int
+     */
+    private $refreshedAt = 0;
 
     /**
      * {@inheritdoc}
@@ -82,7 +89,8 @@ class SymfonyDownloadsCommand extends ContainerAwareCommand
         $progress->setMessage('-', 'eta');
         $progress->start();
 
-        while ($this->downloads < static::GOAL) {
+        $downloads = $this->downloads;
+        while ($downloads < static::GOAL) {
             $downloads = $this->calculateCurrentDownloads($input->getOption('refresh'), $output);
             $eta = $this->calculateRemainingTime($downloads);
             $progress->setMessage($eta, 'eta');
@@ -126,11 +134,12 @@ class SymfonyDownloadsCommand extends ContainerAwareCommand
      * Calculates the current total downloads.
      *
      * @param $refresh
+     * @param OutputInterface $output
      * @return int
      */
     protected function calculateCurrentDownloads($refresh, OutputInterface $output)
     {
-        if ($this->updatedAt < time() - $refresh) {
+        if ($this->refreshedAt < time() - $refresh) {
             $this->refreshData($output);
         }
         $downloads = (int) round($this->downloads + $this->perSecond * (time() - $this->updatedAt));
@@ -155,10 +164,36 @@ class SymfonyDownloadsCommand extends ContainerAwareCommand
             OutputInterface::VERBOSITY_VERBOSE
         );
 
-        // TODO: download and parse
-//        $this->downloads = 495733451;
-//        $this->perSecond = 12.219;
-//        $this->updatedAt = time();
+        $content = file_get_contents('https://symfony.com/500million');
+        if (false === $content) {
+            $output->writeln(
+                "\nCould not download stats page.\n",
+                OutputInterface::VERBOSITY_VERBOSE
+            );
+            return;
+        }
+
+        $pattern = '/var stats = (.*);/';
+        $result = preg_match($pattern, $content, $matches);
+        if (false === $result) {
+            $output->writeln(
+                "\nCould not find stats.\n",
+                OutputInterface::VERBOSITY_VERBOSE
+            );
+            return;
+        }
+        $stats = json_decode($matches[1]);
+        if (!isset($stats->total->downloads, $stats->total->perSecond, $stats->updatedAt)) {
+            $output->writeln(
+                "\nCould not find required data.\n",
+                OutputInterface::VERBOSITY_VERBOSE
+            );
+            return;
+        }
+        $this->downloads = $stats->total->downloads;
+        $this->perSecond = $stats->total->perSecond;
+        $this->updatedAt = $stats->updatedAt;
+        $this->refreshedAt = time();
     }
 
     /**
